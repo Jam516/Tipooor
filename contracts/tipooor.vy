@@ -1,6 +1,6 @@
 # @version >=0.3.2
 
-# @notice Simple contract to receive tips
+# @note Simple contract to receive tips
 
 event Payment:
     sender: indexed(address)
@@ -9,12 +9,12 @@ event Payment:
 
 owner: address
 
-# @notice Set owner address when the contract is created
+# @note Set owner address when the contract is created
 @external
 def __init__():
     self.owner = msg.sender
 
-# @notice Default function is executed on a call to the contract if
+# @note Default function is executed on a call to the contract if
 # - non-existing function is called
 # - no function is supplied, such as when someone sends it Eth directly
 # Same construct as fallback in Solidity
@@ -46,3 +46,26 @@ def transfer(_to:address, _amount:uint256):
     assert _amount < self.balance, "Amount exceeds balance"
     log Payment(self, _amount, self.balance)
     send(_to, _amount)
+
+# @note Used only to send tokens that are not supported by this contract
+# Used to handle non-compliant tokens like USDT
+@external
+def erc20_safe_transfer(token: address, receiver: address, amount: uint256):
+    assert msg.sender == self.owner, "You are not the owner"
+    response: Bytes[32] = raw_call(
+        token,
+        concat(
+            method_id("transfer(address,uint256)"),
+            convert(receiver, bytes32),
+            convert(amount, bytes32),
+        ),
+        max_outsize=32,
+    )
+    if len(response) > 0:
+        assert convert(response, bool), "Transfer failed!"
+
+# @notice Helper function to get the balance of the contract
+@external
+@view
+def getBalance() -> uint256:
+    return self.balance
